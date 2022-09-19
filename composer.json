@@ -115,7 +115,8 @@
         },
         "patches": {
             "drupal/image_style_warmer": {
-                "Drupal 10 coding standards": "patches/drupal-coding-standards.patch"
+                "#3261232: Drupal 10 readiness": "https://git.drupalcode.org/project/image_style_warmer/-/merge_requests/9.patch",
+                "#3261232: D10 Readiness accessCheck()": "patches/drupal-10-readiness.patch"
             }
         }
     },
