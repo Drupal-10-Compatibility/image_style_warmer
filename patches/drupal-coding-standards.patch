@@ -1,5 +1,17 @@
+diff --git a/drush.services.yml b/drush.services.yml
+index bb62afe..2a57b4a 100644
+--- a/drush.services.yml
++++ b/drush.services.yml
+@@ -1,6 +1,6 @@
+ services:
+   image_style_warmer.commands:
+     class: \Drupal\image_style_warmer\Commands\ImageStylesWarmerCommands
+-    arguments: [ '@logger.factory' ]
++    arguments: [ '@logger.factory', '@entity_type.manager' ]
+     tags:
+       - { name: drush.command }
 diff --git a/src/BatchService.php b/src/BatchService.php
-index 7d48180..f9c35ac 100644
+index 7d48180..7afed11 100644
 --- a/src/BatchService.php
 +++ b/src/BatchService.php
 @@ -5,7 +5,7 @@ namespace Drupal\image_style_warmer;
@@ -7,34 +19,79 @@ index 7d48180..f9c35ac 100644
  
  /**
 - * Class BatchService
-+ * Class BatchService.
++ * Image Style Warmer Batch service.
   *
   * @package Drupal\image_style_warmer
   */
+@@ -16,6 +16,8 @@ class BatchService {
+    *
+    * @param int $fid
+    *   Id of the file.
++   * @param int $count
++   *   Number of items in $context['results].
+    * @param object $context
+    *   Context for operations.
+    */
 diff --git a/src/Commands/ImageStylesWarmerCommands.php b/src/Commands/ImageStylesWarmerCommands.php
-index b409351..9b43b62 100644
+index b409351..85e5c59 100644
 --- a/src/Commands/ImageStylesWarmerCommands.php
 +++ b/src/Commands/ImageStylesWarmerCommands.php
-@@ -5,6 +5,9 @@ namespace Drupal\image_style_warmer\Commands;
+@@ -3,17 +3,36 @@
+ namespace Drupal\image_style_warmer\Commands;
+ 
  use Drupal\Core\Logger\LoggerChannelFactoryInterface;
++use Drupal\Core\StringTranslation\StringTranslationTrait;
  use Drush\Commands\DrushCommands;
  
 +/**
-+ *
++ * Image Styles Warmer Drush Commands.
 + */
  class ImageStylesWarmerCommands extends DrushCommands {
  
++  use StringTranslationTrait;
++
    /**
-@@ -12,6 +15,9 @@ class ImageStylesWarmerCommands extends DrushCommands {
++   * Logger Channel Factory Service.
++   *
+    * @var \Drupal\Core\Logger\LoggerChannelFactoryInterface
     */
    private $loggerChannelFactory;
  
+-  public function __construct(LoggerChannelFactoryInterface $loggerChannelFactory) {
 +  /**
++   * File Entity Storage interface.
 +   *
++   * @var \Drupal\Core\Entity\EntityStorageInterface
 +   */
-   public function __construct(LoggerChannelFactoryInterface $loggerChannelFactory) {
++  private $fileEntityStorage;
++
++  /**
++   * {@inheritDoc}
++   */
++  public function __construct(LoggerChannelFactoryInterface $loggerChannelFactory, EntityTypeManagerInterface $entityTypeManager) {
      $this->loggerChannelFactory = $loggerChannelFactory;
++    $this->fileEntityStorage = $entityTypeManager->getStorage('file');
    }
+ 
+   /**
+@@ -26,7 +45,7 @@ class ImageStylesWarmerCommands extends DrushCommands {
+     $this->logger()->notice("Loading files.");
+     $this->loggerChannelFactory->get('image_style_warmer')->info('Image styles warmer loading files.');
+ 
+-    $files = \Drupal::entityQuery('file')->execute();
++    $files = $this->fileEntityStorage->getQuery()->acessCheck(TRUE)->execute();
+     if (!empty($files)) {
+       $count = count($files);
+       $numOperations = 0;
+@@ -42,7 +61,7 @@ class ImageStylesWarmerCommands extends DrushCommands {
+       }
+ 
+       $batch = [
+-        'title' => t('Warming up image styles for @num file(s)', ['@num' => $numOperations]),
++        'title' => $this->t('Warming up image styles for @num file(s)', ['@num' => $numOperations]),
+         'operations' => $operations,
+         'finished' => '\Drupal\image_style_warmer\BatchService::warmUpFileFinished',
+       ];
 diff --git a/src/ImageStylesWarmer.php b/src/ImageStylesWarmer.php
 index 4ca17bf..f360dfb 100644
 --- a/src/ImageStylesWarmer.php
@@ -50,8 +107,34 @@ index 4ca17bf..f360dfb 100644
  
      // Create image derivatives if they not already exists.
      $styles = $this->imageStyles->loadMultiple($image_styles);
+diff --git a/tests/src/Functional/ImageStyleWarmerCustomModuleTest.php b/tests/src/Functional/ImageStyleWarmerCustomModuleTest.php
+index cd315f2..43d0076 100644
+--- a/tests/src/Functional/ImageStyleWarmerCustomModuleTest.php
++++ b/tests/src/Functional/ImageStyleWarmerCustomModuleTest.php
+@@ -86,7 +86,7 @@ class ImageStyleWarmerCustomModuleTest extends ImageStyleWarmerTestBase {
+     $this->drupalLogin($this->adminUser);
+     $this->drupalGet('admin/config/development/performance/image-style-warmer');
+     $settings = [];
+-    $this->submitForm($settings, t('Save configuration'));
++    $this->submitForm($settings, 'Save configuration');
+ 
+     // Create an Image Styles Warmer service.
+     $this->testService = \Drupal::service('image_style_warmer.warmer');
+diff --git a/tests/src/Functional/ImageStyleWarmerDrushTest.php b/tests/src/Functional/ImageStyleWarmerDrushTest.php
+index 7df0c66..3c9a836 100644
+--- a/tests/src/Functional/ImageStyleWarmerDrushTest.php
++++ b/tests/src/Functional/ImageStyleWarmerDrushTest.php
+@@ -54,7 +54,7 @@ class ImageStyleWarmerDrushTest extends ImageStyleWarmerTestBase {
+       'initial_image_styles[test_initial]' => 'test_initial',
+       'queue_image_styles[test_queue]' => 'test_queue',
+     ];
+-    $this->submitForm($settings, t('Save configuration'));
++    $this->submitForm($settings, 'Save configuration');
+ 
+     // Create an image file without usages.
+     $this->testFile = $this->getTestFile('image');
 diff --git a/tests/src/Functional/ImageStyleWarmerGeneralTest.php b/tests/src/Functional/ImageStyleWarmerGeneralTest.php
-index 7a72db8..4ca9281 100644
+index 7a72db8..be94294 100644
 --- a/tests/src/Functional/ImageStyleWarmerGeneralTest.php
 +++ b/tests/src/Functional/ImageStyleWarmerGeneralTest.php
 @@ -4,7 +4,6 @@ namespace Drupal\Tests\image_style_warmer\Functional;
@@ -62,3 +145,56 @@ index 7a72db8..4ca9281 100644
  use Drupal\Tests\Traits\Core\CronRunTrait;
  
  /**
+@@ -115,7 +114,7 @@ class ImageStyleWarmerGeneralTest extends ImageStyleWarmerTestBase {
+       'initial_image_styles[test_initial]' => 'test_initial',
+       'queue_image_styles[test_queue]' => 'test_queue',
+     ];
+-    $this->submitForm($settings, t('Save configuration'));
++    $this->submitForm($settings, 'Save configuration');
+ 
+     // Create an image file without usages.
+     $this->testFile = $this->getTestFile('image');
+diff --git a/tests/src/Functional/ImageStyleWarmerSettingsFormTest.php b/tests/src/Functional/ImageStyleWarmerSettingsFormTest.php
+index ef6e020..823256f 100644
+--- a/tests/src/Functional/ImageStyleWarmerSettingsFormTest.php
++++ b/tests/src/Functional/ImageStyleWarmerSettingsFormTest.php
+@@ -19,7 +19,7 @@ class ImageStyleWarmerSettingsFormTest extends ImageStyleWarmerTestBase {
+   }
+ 
+   /**
+-   * Authenticated non-admin users don't have access to image_style_warmer settings page.
++   * Test access permissions for Authenticated non-admin users to settings page.
+    */
+   public function testAuthenticatedPermissionDenied() {
+     $this->drupalLogin($this->createUser());
+@@ -36,21 +36,21 @@ class ImageStyleWarmerSettingsFormTest extends ImageStyleWarmerTestBase {
+     $this->drupalLogin($this->adminUser);
+     $this->drupalGet('admin/config/development/performance/image-style-warmer');
+     $this->assertSession()->statusCodeEquals(200);
+-    $this->assertSession()->pageTextContains(t('Image styles'));
+-    $this->assertSession()->pageTextContains(t('Configure image styles which will be created initially or via queue worker by Image Style Warmer.'));
+-    $this->assertSession()->pageTextContains(t('Initial image styles'));
+-    $this->assertSession()->pageTextContains(t('Select image styles which will be created initial for an image.'));
+-    $this->assertSession()->pageTextContains(t('Queue image styles'));
+-    $this->assertSession()->pageTextContains(t('Select image styles which will be created via queue worker.'));
+-    $this->assertSession()->buttonExists(t('Save configuration'));
++    $this->assertSession()->pageTextContains('Image styles');
++    $this->assertSession()->pageTextContains('Configure image styles which will be created initially or via queue worker by Image Style Warmer.');
++    $this->assertSession()->pageTextContains('Initial image styles');
++    $this->assertSession()->pageTextContains('Select image styles which will be created initial for an image.');
++    $this->assertSession()->pageTextContains('Queue image styles');
++    $this->assertSession()->pageTextContains('Select image styles which will be created via queue worker.');
++    $this->assertSession()->buttonExists('Save configuration');
+ 
+     // Can save settings with a selected initial and queue image style.
+     $settings = [
+       'initial_image_styles[test_initial]' => 'test_initial',
+       'queue_image_styles[test_queue]' => 'test_queue',
+     ];
+-    $this->submitForm($settings, t('Save configuration'));
+-    $this->assertSession()->pageTextContains(t('The configuration options have been saved.'));
++    $this->submitForm($settings, 'Save configuration');
++    $this->assertSession()->pageTextContains('The configuration options have been saved.');
+     $this->assertSession()->checkboxChecked('initial_image_styles[test_initial]');
+     $this->assertSession()->checkboxChecked('queue_image_styles[test_queue]');
+   }
