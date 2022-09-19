@@ -1,0 +1,64 @@
+diff --git a/src/BatchService.php b/src/BatchService.php
+index 7d48180..f9c35ac 100644
+--- a/src/BatchService.php
++++ b/src/BatchService.php
+@@ -5,7 +5,7 @@ namespace Drupal\image_style_warmer;
+ use Drupal\file\Entity\File;
+ 
+ /**
+- * Class BatchService
++ * Class BatchService.
+  *
+  * @package Drupal\image_style_warmer
+  */
+diff --git a/src/Commands/ImageStylesWarmerCommands.php b/src/Commands/ImageStylesWarmerCommands.php
+index b409351..9b43b62 100644
+--- a/src/Commands/ImageStylesWarmerCommands.php
++++ b/src/Commands/ImageStylesWarmerCommands.php
+@@ -5,6 +5,9 @@ namespace Drupal\image_style_warmer\Commands;
+ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+ use Drush\Commands\DrushCommands;
+ 
++/**
++ *
++ */
+ class ImageStylesWarmerCommands extends DrushCommands {
+ 
+   /**
+@@ -12,6 +15,9 @@ class ImageStylesWarmerCommands extends DrushCommands {
+    */
+   private $loggerChannelFactory;
+ 
++  /**
++   *
++   */
+   public function __construct(LoggerChannelFactoryInterface $loggerChannelFactory) {
+     $this->loggerChannelFactory = $loggerChannelFactory;
+   }
+diff --git a/src/ImageStylesWarmer.php b/src/ImageStylesWarmer.php
+index 4ca17bf..f360dfb 100644
+--- a/src/ImageStylesWarmer.php
++++ b/src/ImageStylesWarmer.php
+@@ -95,8 +95,8 @@ class ImageStylesWarmer implements ImageStylesWarmerInterface {
+       return;
+     }
+ 
+-    /* @var \Drupal\Core\Image\Image $image */
+-    /* @var \Drupal\image\Entity\ImageStyle $style */
++    /** @var \Drupal\Core\Image\Image $image */
++    /** @var \Drupal\image\Entity\ImageStyle $style */
+ 
+     // Create image derivatives if they not already exists.
+     $styles = $this->imageStyles->loadMultiple($image_styles);
+diff --git a/tests/src/Functional/ImageStyleWarmerGeneralTest.php b/tests/src/Functional/ImageStyleWarmerGeneralTest.php
+index 7a72db8..4ca9281 100644
+--- a/tests/src/Functional/ImageStyleWarmerGeneralTest.php
++++ b/tests/src/Functional/ImageStyleWarmerGeneralTest.php
+@@ -4,7 +4,6 @@ namespace Drupal\Tests\image_style_warmer\Functional;
+ 
+ use Drupal\Core\Database\Database;
+ use Drupal\Core\Queue\DatabaseQueue;
+-use Drupal\Tests\TestFileCreationTrait;
+ use Drupal\Tests\Traits\Core\CronRunTrait;
+ 
+ /**
